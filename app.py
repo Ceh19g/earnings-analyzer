@@ -722,8 +722,16 @@ with tab_kalshi:
                                         "Closing Soon", "Recently Added"],
                                label_visibility="collapsed")
 
+    PARLAY_KEYWORDS = ["CROSSCATEGORY", "MULTIGAME", "MULTI", "PARLAY", "COMBO", "MVE"]
+
+    def is_parlay(m):
+        et = (m.get("event_ticker") or "").upper()
+        tk = (m.get("ticker") or "").upper()
+        return any(kw in et or kw in tk for kw in PARLAY_KEYWORDS)
+
     with st.spinner("Loading Kalshi markets..."):
         markets, next_cursor = get_kalshi_markets(limit=200)
+        markets = [m for m in markets if not is_parlay(m)]
 
     if not markets:
         st.error("Could not load Kalshi markets. The API may be temporarily unavailable.")
