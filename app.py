@@ -302,21 +302,29 @@ def get_market_news():
             continue
     return items[:14]
 
+KALSHI_API_KEY = "4d4e1d98-95bf-4629-b77d-a6de3b3fbab5"
+
 @st.cache_data(ttl=180)
 def get_kalshi_markets(limit=200, cursor=None):
-    try:
-        params = {"status": "open", "limit": limit}
-        if cursor:
-            params["cursor"] = cursor
-        resp = requests.get(
-            "https://api.elections.kalshi.com/trade-api/v2/markets",
-            params=params, timeout=15
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("markets", []), data.get("cursor", "")
-    except Exception as e:
-        return [], ""
+    params = {"status": "open", "limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    headers = {"Authorization": f"Bearer {KALSHI_API_KEY}"}
+    urls = [
+        "https://api.elections.kalshi.com/trade-api/v2/markets",
+        "https://api.kalshi.com/trade-api/v2/markets",
+    ]
+    last_err = ""
+    for url in urls:
+        try:
+            resp = requests.get(url, params=params, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("markets", []), data.get("cursor", ""), ""
+            last_err = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            last_err = str(e)
+    return [], "", last_err
 
 @st.cache_data(ttl=60)
 def search_tickers(query):
@@ -730,11 +738,11 @@ with tab_kalshi:
         return any(kw in et or kw in tk for kw in PARLAY_KEYWORDS)
 
     with st.spinner("Loading Kalshi markets..."):
-        markets, next_cursor = get_kalshi_markets(limit=200)
+        markets, next_cursor, k_err = get_kalshi_markets(limit=200)
         markets = [m for m in markets if not is_parlay(m)]
 
     if not markets:
-        st.error("Could not load Kalshi markets. The API may be temporarily unavailable.")
+        st.error(f"Could not load Kalshi markets. Error: {k_err or 'No markets returned.'}")
     else:
         # ── Build category list from event tickers ────────────────────────────
         def get_series(m):
