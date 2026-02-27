@@ -2,383 +2,637 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
+from datetime import datetime
 
-st.set_page_config(page_title="Earnings Analyzer", layout="wide")
+st.set_page_config(page_title="MarketLens", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
 
-st.title("Earnings Report Analyzer")
-st.caption("Enter any stock ticker to get a plain-English breakdown of their latest earnings.")
+# ── BLOOMBERG-INSPIRED DARK THEME ─────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
+.stApp { background-color: #060b14 !important; }
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 1rem 2rem 2rem 2rem !important; max-width: 100% !important; }
 
-# --- Input ---
-col1, col2 = st.columns([2, 1])
-with col1:
-    ticker_input = st.text_input("Stock Ticker", placeholder="e.g. AAPL, MSFT, NVDA").upper().strip()
-with col2:
-    st.write("")
-    st.write("")
-    analyze_btn = st.button("Analyze", type="primary", use_container_width=True)
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent; border-bottom: 1px solid #1a2744; gap: 0; padding: 0;
+}
+.stTabs [data-baseweb="tab"] {
+    color: #6e8098 !important; font-weight: 500; font-size: 0.82rem;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.9rem 1.8rem;
+    border-bottom: 2px solid transparent; background: transparent !important;
+}
+.stTabs [aria-selected="true"] { color: #ff9500 !important; border-bottom: 2px solid #ff9500 !important; }
 
+/* Metrics */
+div[data-testid="metric-container"] {
+    background: #0d1526 !important; border: 1px solid #1a2744 !important;
+    border-radius: 4px; padding: 0.8rem 1rem !important;
+}
+div[data-testid="metric-container"] label {
+    color: #6e8098 !important; font-size: 0.68rem !important;
+    text-transform: uppercase; letter-spacing: 0.09em;
+}
+div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #cdd9e5 !important; font-size: 1.3rem !important; font-weight: 600;
+}
+div[data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 0.8rem !important; }
 
+/* Input */
+.stTextInput > div > div > input {
+    background: #0d1526 !important; border: 1px solid #1a2744 !important;
+    color: #cdd9e5 !important; border-radius: 4px !important;
+    padding: 0.5rem 0.75rem !important; font-size: 0.9rem !important;
+}
+.stTextInput > div > div > input:focus {
+    border-color: #ff9500 !important; box-shadow: 0 0 0 1px #ff9500 !important;
+}
+.stTextInput > div > div > input::placeholder { color: #6e8098 !important; }
+
+/* Buttons */
+.stButton > button {
+    background: #0d1526 !important; border: 1px solid #1a2744 !important;
+    color: #cdd9e5 !important; border-radius: 3px !important;
+    font-size: 0.78rem !important; font-weight: 600 !important;
+    letter-spacing: 0.04em !important; padding: 0.35rem 0.9rem !important;
+    transition: all 0.15s ease !important;
+}
+.stButton > button:hover {
+    border-color: #ff9500 !important; color: #ff9500 !important;
+    background: rgba(255,149,0,0.08) !important;
+}
+.stButton > button[kind="primary"] {
+    background: #ff9500 !important; border-color: #ff9500 !important; color: #060b14 !important;
+}
+hr { border-color: #1a2744 !important; margin: 1rem 0 !important; }
+
+/* Expander */
+.streamlit-expanderHeader {
+    background: #0d1526 !important; border: 1px solid #1a2744 !important;
+    border-radius: 4px !important; color: #cdd9e5 !important;
+}
+details[open] .streamlit-expanderHeader { border-radius: 4px 4px 0 0 !important; }
+.streamlit-expanderContent {
+    background: #0d1526 !important; border: 1px solid #1a2744 !important;
+    border-top: 0 !important; border-radius: 0 0 4px 4px !important;
+}
+
+/* Section label */
+.section-label {
+    color: #6e8098; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; padding-bottom: 0.6rem; border-bottom: 1px solid #1a2744;
+    margin-bottom: 1rem;
+}
+
+/* Volume table */
+.vol-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.vol-table th {
+    color: #6e8098; font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.4rem 0.6rem; border-bottom: 1px solid #1a2744; text-align: right;
+}
+.vol-table th:first-child { text-align: left; }
+.vol-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid rgba(26,39,68,0.5); color: #cdd9e5; text-align: right; }
+.vol-table td:first-child { text-align: left; font-weight: 700; color: #ff9500; }
+.vol-table tr:hover td { background: rgba(255,149,0,0.04); }
+.pos { color: #00b578 !important; } .neg { color: #ff4747 !important; }
+
+/* News */
+.news-card {
+    background: #0d1526; border: 1px solid #1a2744; border-left: 3px solid #ff9500;
+    border-radius: 0 4px 4px 0; padding: 0.7rem 1rem; margin-bottom: 0.5rem;
+}
+.news-headline { color: #cdd9e5; font-size: 0.85rem; font-weight: 500; line-height: 1.4; }
+.news-meta { color: #6e8098; font-size: 0.72rem; margin-top: 4px; }
+.news-tag {
+    display: inline-block; background: rgba(255,149,0,0.15); color: #ff9500;
+    border-radius: 2px; padding: 0 5px; font-size: 0.68rem; font-weight: 700; margin-right: 6px;
+}
+
+/* Summary & flag cards */
+.summary-item {
+    background: #0d1526; border: 1px solid #1a2744; border-radius: 4px;
+    padding: 0.6rem 1rem; margin-bottom: 0.4rem; color: #cdd9e5; font-size: 0.85rem; line-height: 1.5;
+}
+.flag-item {
+    background: rgba(255,71,71,0.08); border: 1px solid rgba(255,71,71,0.25);
+    border-left: 3px solid #ff4747; border-radius: 0 4px 4px 0;
+    padding: 0.5rem 0.9rem; margin-bottom: 0.4rem; color: #cdd9e5; font-size: 0.83rem;
+}
+
+/* App header */
+.app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.8rem 0; border-bottom: 1px solid #1a2744; margin-bottom: 1.2rem;
+}
+.app-logo { color: #ff9500; font-size: 1.25rem; font-weight: 700; letter-spacing: 0.06em; }
+.app-tagline { color: #6e8098; font-size: 0.75rem; margin-left: 0.75rem; }
+.app-time { color: #6e8098; font-size: 0.75rem; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+if "selected_ticker" not in st.session_state:
+    st.session_state.selected_ticker = ""
+
+# ── CONSTANTS ─────────────────────────────────────────────────────────────────
+SUGGESTED = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD", "NFLX", "JPM", "BAC", "XOM", "PLTR", "DIS", "UBER"]
+
+VOLUME_WATCH = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD", "NFLX",
+                "JPM", "BAC", "XOM", "PLTR", "SPY", "QQQ", "INTC", "F", "DIS", "SOFI", "UBER"]
+
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 def fmt_large(n):
-    """Format large numbers into readable billions/millions."""
-    if n is None or pd.isna(n):
-        return "N/A"
-    if abs(n) >= 1e12:
-        return f"${n/1e12:.2f}T"
-    if abs(n) >= 1e9:
-        return f"${n/1e9:.2f}B"
-    if abs(n) >= 1e6:
-        return f"${n/1e6:.2f}M"
+    if n is None: return "N/A"
+    try:
+        if pd.isna(n): return "N/A"
+    except: pass
+    if abs(n) >= 1e12: return f"${n/1e12:.2f}T"
+    if abs(n) >= 1e9:  return f"${n/1e9:.2f}B"
+    if abs(n) >= 1e6:  return f"${n/1e6:.2f}M"
     return f"${n:,.0f}"
 
+def fmt_vol(n):
+    if n is None: return "N/A"
+    try:
+        if pd.isna(n): return "N/A"
+    except: pass
+    if n >= 1e9: return f"{n/1e9:.1f}B"
+    if n >= 1e6: return f"{n/1e6:.1f}M"
+    if n >= 1e3: return f"{n/1e3:.1f}K"
+    return f"{n:.0f}"
 
 def fmt_pct(n):
-    if n is None or pd.isna(n):
-        return "N/A"
+    if n is None: return "N/A"
+    try:
+        if pd.isna(n): return "N/A"
+    except: pass
     return f"{n:.1f}%"
 
-
 def pct_change(new, old):
-    if old is None or new is None or pd.isna(old) or pd.isna(new) or old == 0:
+    try:
+        if None in (new, old) or pd.isna(new) or pd.isna(old) or old == 0:
+            return None
+        return ((new - old) / abs(old)) * 100
+    except:
         return None
-    return ((new - old) / abs(old)) * 100
 
+def safe_fmt(df):
+    try:
+        return df.iloc[:, :4].apply(lambda col: col.map(lambda x: fmt_large(x) if pd.notna(x) else "—"))
+    except:
+        return df.iloc[:, :4]
 
-def delta_color(val):
-    if val is None or pd.isna(val):
-        return "gray"
-    return "green" if val >= 0 else "red"
+# ── DATA FUNCTIONS ────────────────────────────────────────────────────────────
+@st.cache_data(ttl=120)
+def get_indices():
+    symbols = {"S&P 500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX"}
+    out = {}
+    for name, sym in symbols.items():
+        try:
+            fi = yf.Ticker(sym).fast_info
+            price = fi.last_price
+            prev  = fi.previous_close
+            out[name] = {"price": price, "change": pct_change(price, prev)}
+        except:
+            out[name] = {"price": None, "change": None}
+    return out
 
+@st.cache_data(ttl=300)
+def get_sp500_history():
+    return yf.Ticker("^GSPC").history(period="3mo")
 
-def delta_arrow(val):
-    if val is None or pd.isna(val):
-        return ""
-    return "▲" if val >= 0 else "▼"
+@st.cache_data(ttl=300)
+def get_top_volume():
+    try:
+        raw = yf.download(VOLUME_WATCH, period="2d", auto_adjust=True, progress=False)
+        rows = []
+        for t in VOLUME_WATCH:
+            try:
+                closes = raw["Close"][t].dropna()
+                vols   = raw["Volume"][t].dropna()
+                if len(closes) >= 2 and len(vols) >= 1:
+                    rows.append({
+                        "ticker": t,
+                        "price":  closes.iloc[-1],
+                        "change": pct_change(closes.iloc[-1], closes.iloc[-2]),
+                        "volume": vols.iloc[-1],
+                    })
+            except:
+                continue
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return df
+        return df.sort_values("volume", ascending=False).head(10).reset_index(drop=True)
+    except:
+        return pd.DataFrame()
 
+@st.cache_data(ttl=600)
+def get_market_news():
+    items, seen = [], set()
+    for sym in ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL"]:
+        try:
+            for a in yf.Ticker(sym).news[:3]:
+                content = a.get("content", {})
+                if isinstance(content, dict) and content:
+                    title     = content.get("title", "")
+                    provider  = content.get("provider") or {}
+                    publisher = provider.get("displayName", "") if isinstance(provider, dict) else ""
+                    url_obj   = content.get("canonicalUrl") or content.get("clickThroughUrl") or {}
+                    link      = url_obj.get("url", "") if isinstance(url_obj, dict) else ""
+                    pub_time  = str(content.get("pubDate", ""))[:10]
+                else:
+                    title     = a.get("title", "")
+                    publisher = a.get("publisher", "")
+                    link      = a.get("link", "")
+                    pub_time  = str(a.get("providerPublishTime", ""))[:10]
+                if title and title not in seen:
+                    seen.add(title)
+                    items.append({"title": title, "publisher": publisher, "link": link, "time": pub_time, "ticker": sym})
+        except:
+            continue
+    return items[:14]
 
-def generate_summary(info, income_q, eps_trend):
-    """Build a rule-based plain-English summary."""
+@st.cache_data(ttl=60)
+def search_tickers(query):
+    try:
+        results = yf.Search(query, max_results=6).quotes
+        return [
+            (r["symbol"], r.get("shortname") or r.get("longname") or "")
+            for r in results
+            if r.get("symbol") and r.get("quoteType") in ("EQUITY", "ETF")
+        ]
+    except:
+        return []
+
+@st.cache_data(ttl=300)
+def load_ticker(symbol):
+    t = yf.Ticker(symbol)
+    return t.info, t.quarterly_financials, t.quarterly_balance_sheet, t.quarterly_cashflow, t.earnings_history
+
+# ── ANALYSIS HELPERS ──────────────────────────────────────────────────────────
+def build_summary(info, income_q, earnings_hist, ticker):
     lines = []
-    name = info.get("longName", ticker_input)
+    name = info.get("longName", ticker)
 
-    # Revenue trend
     if income_q is not None and len(income_q.columns) >= 2:
         rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
         if rev_key:
-            rev_latest = income_q.loc[rev_key].iloc[0]
-            rev_prior = income_q.loc[rev_key].iloc[1]
-            rev_chg = pct_change(rev_latest, rev_prior)
-            if rev_chg is not None:
-                direction = "grew" if rev_chg >= 0 else "declined"
-                lines.append(
-                    f"**Revenue** {direction} {abs(rev_chg):.1f}% year-over-year to {fmt_large(rev_latest)}."
-                )
+            rv_new = income_q.loc[rev_key].iloc[0]
+            rv_old = income_q.loc[rev_key].iloc[1]
+            chg = pct_change(rv_new, rv_old)
+            if chg is not None:
+                direction = "grew" if chg >= 0 else "declined"
+                lines.append(f"Revenue {direction} <b>{abs(chg):.1f}%</b> year-over-year to <b>{fmt_large(rv_new)}</b>.")
 
-    # EPS
-    if eps_trend is not None and len(eps_trend) >= 2:
-        eps_latest = eps_trend.iloc[0]["epsActual"] if "epsActual" in eps_trend.columns else None
-        eps_est = eps_trend.iloc[0]["epsEstimate"] if "epsEstimate" in eps_trend.columns else None
-        if eps_latest is not None and not pd.isna(eps_latest):
-            lines.append(f"**Earnings per share (EPS)** came in at ${eps_latest:.2f}.")
+    if earnings_hist is not None and not earnings_hist.empty:
+        eps_actual = earnings_hist.iloc[0].get("epsActual") if "epsActual" in earnings_hist.columns else None
+        eps_est    = earnings_hist.iloc[0].get("epsEstimate") if "epsEstimate" in earnings_hist.columns else None
+        if eps_actual is not None and not pd.isna(eps_actual):
+            lines.append(f"EPS came in at <b>${eps_actual:.2f}</b>.")
             if eps_est is not None and not pd.isna(eps_est) and eps_est != 0:
-                diff = eps_latest - eps_est
-                beat_miss = "beat" if diff >= 0 else "missed"
-                lines.append(
-                    f"This **{beat_miss}** analyst estimates of ${eps_est:.2f} "
-                    f"by ${abs(diff):.2f} ({abs(diff/eps_est)*100:.1f}%)."
-                )
+                diff = eps_actual - eps_est
+                bm = "beat" if diff >= 0 else "missed"
+                lines.append(f"This <b>{bm}</b> analyst estimates of ${eps_est:.2f} by ${abs(diff):.2f} ({abs(diff/eps_est)*100:.1f}%).")
 
-    # Profitability
-    profit_margin = info.get("profitMargins")
-    if profit_margin is not None:
-        margin_pct = profit_margin * 100
-        if margin_pct > 20:
-            label = "strong"
-        elif margin_pct > 10:
-            label = "healthy"
-        elif margin_pct > 0:
-            label = "thin"
-        else:
-            label = "negative"
-        lines.append(f"The company has a **{label} net profit margin** of {margin_pct:.1f}%.")
+    pm = info.get("profitMargins")
+    if pm is not None:
+        pct = pm * 100
+        label = "strong" if pct > 20 else "healthy" if pct > 10 else "thin" if pct > 0 else "negative"
+        lines.append(f"Net profit margin is <b>{pct:.1f}%</b> — considered <b>{label}</b>.")
 
-    # Guidance / forward PE
-    fwd_pe = info.get("forwardPE")
-    trail_pe = info.get("trailingPE")
-    if fwd_pe and trail_pe and not pd.isna(fwd_pe) and not pd.isna(trail_pe):
-        if fwd_pe < trail_pe:
-            lines.append(
-                f"The forward P/E of {fwd_pe:.1f}x is below the trailing P/E of {trail_pe:.1f}x, "
-                "suggesting the market expects **earnings growth** ahead."
-            )
+    fpe = info.get("forwardPE")
+    tpe = info.get("trailingPE")
+    if fpe and tpe and not pd.isna(fpe) and not pd.isna(tpe):
+        if fpe < tpe:
+            lines.append(f"Forward P/E ({fpe:.1f}x) is below trailing P/E ({tpe:.1f}x) — market expects <b>earnings growth</b> ahead.")
         else:
-            lines.append(
-                f"The forward P/E of {fwd_pe:.1f}x is above the trailing P/E of {trail_pe:.1f}x, "
-                "suggesting the market expects **earnings to soften** ahead."
-            )
+            lines.append(f"Forward P/E ({fpe:.1f}x) is above trailing P/E ({tpe:.1f}x) — market expects <b>earnings to moderate</b>.")
 
     if not lines:
         lines.append("Summary data is limited for this ticker. See the charts below for trends.")
-
     return lines
 
-
-def flag_risks(info, income_q):
-    """Identify potential red flags."""
+def build_flags(info, income_q):
     flags = []
-
-    # Debt to equity
     de = info.get("debtToEquity")
     if de and not pd.isna(de) and de > 200:
         flags.append(f"High debt-to-equity ratio ({de:.0f}%) — elevated financial leverage.")
-
-    # Negative profit margin
     pm = info.get("profitMargins")
     if pm is not None and not pd.isna(pm) and pm < 0:
         flags.append("Negative profit margin — company is currently unprofitable.")
-
-    # Revenue deceleration (last 3 quarters)
     if income_q is not None and len(income_q.columns) >= 4:
         rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
         if rev_key:
             revs = income_q.loc[rev_key].iloc[:4].values
-            changes = [pct_change(revs[i], revs[i + 1]) for i in range(3)]
-            changes = [c for c in changes if c is not None]
-            if len(changes) >= 2 and changes[0] < changes[-1]:
+            chgs = [pct_change(revs[i], revs[i+1]) for i in range(3)]
+            chgs = [c for c in chgs if c is not None]
+            if len(chgs) >= 2 and chgs[0] < chgs[-1]:
                 flags.append("Revenue growth is decelerating over recent quarters.")
-
-    # Operating cash flow
     ocf = info.get("operatingCashflow")
     if ocf is not None and not pd.isna(ocf) and ocf < 0:
         flags.append("Negative operating cash flow — the business is burning cash.")
-
     return flags
 
+# ── CHART DEFAULTS ────────────────────────────────────────────────────────────
+CHART_LAYOUT = dict(
+    paper_bgcolor="transparent", plot_bgcolor="#0d1526",
+    margin=dict(l=0, r=0, t=10, b=0),
+    xaxis=dict(color="#6e8098", tickfont=dict(size=10), showgrid=False),
+    yaxis=dict(color="#6e8098", tickfont=dict(size=10), gridcolor="#1a2744"),
+    legend=dict(orientation="h", y=1.15, font=dict(color="#6e8098", size=11)),
+    hovermode="x unified",
+)
 
-if analyze_btn and ticker_input:
-    with st.spinner(f"Fetching data for {ticker_input}..."):
-        try:
-            stock = yf.Ticker(ticker_input)
-            info = stock.info
+# ── APP HEADER ────────────────────────────────────────────────────────────────
+now = datetime.now().strftime("%b %d, %Y  %H:%M")
+st.markdown(f"""
+<div class="app-header">
+  <div style="display:flex; align-items:baseline; gap:0.75rem;">
+    <span class="app-logo">◆ MARKETLENS</span>
+    <span class="app-tagline">Earnings &amp; Market Intelligence</span>
+  </div>
+  <span class="app-time">{now}</span>
+</div>
+""", unsafe_allow_html=True)
 
-            if not info or info.get("regularMarketPrice") is None and info.get("currentPrice") is None:
-                st.error(f"Could not find data for ticker **{ticker_input}**. Check the symbol and try again.")
+# ── TABS ──────────────────────────────────────────────────────────────────────
+tab_dash, tab_earn = st.tabs(["  Market Dashboard  ", "  Earnings Analyzer  "])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MARKET DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_dash:
+
+    # ── Index bar ─────────────────────────────────────────────────────────────
+    indices = get_indices()
+    idx_cols = st.columns(4)
+    for col, (name, d) in zip(idx_cols, indices.items()):
+        price_str = f"{d['price']:,.2f}" if d["price"] else "—"
+        delta_str = f"{d['change']:+.2f}%" if d["change"] is not None else None
+        col.metric(name, price_str, delta_str)
+
+    st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+
+    # ── S&P Chart + Volume table ───────────────────────────────────────────────
+    left, right = st.columns([6, 4], gap="large")
+
+    with left:
+        st.markdown('<div class="section-label">S&P 500 — 3 Month Performance</div>', unsafe_allow_html=True)
+        hist = get_sp500_history()
+        if not hist.empty:
+            start = hist["Close"].iloc[0]
+            end   = hist["Close"].iloc[-1]
+            line_color = "#00b578" if end >= start else "#ff4747"
+            fill_rgb   = "0,181,120" if end >= start else "255,71,71"
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=hist.index, y=hist["Close"],
+                fill="tozeroy", fillcolor=f"rgba({fill_rgb},0.07)",
+                line=dict(color=line_color, width=1.5),
+                hovertemplate="%{x|%b %d}<br><b>%{y:,.0f}</b><extra></extra>",
+            ))
+            layout = {**CHART_LAYOUT, "height": 290}
+            layout["yaxis"] = {**layout["yaxis"], "tickprefix": ""}
+            fig.update_layout(**layout)
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    with right:
+        st.markdown('<div class="section-label">Top Volume Today</div>', unsafe_allow_html=True)
+        vol_df = get_top_volume()
+        if not vol_df.empty:
+            rows_html = ""
+            for _, row in vol_df.iterrows():
+                chg = row["change"]
+                chg_str = f"{chg:+.1f}%" if chg is not None and not pd.isna(chg) else "—"
+                cls = "pos" if (chg is not None and not pd.isna(chg) and chg >= 0) else "neg"
+                rows_html += f"""
+                <tr>
+                  <td>{row['ticker']}</td>
+                  <td>${row['price']:.2f}</td>
+                  <td class="{cls}">{chg_str}</td>
+                  <td>{fmt_vol(row['volume'])}</td>
+                </tr>"""
+            st.markdown(f"""
+            <table class="vol-table">
+              <thead><tr><th>Ticker</th><th>Price</th><th>Chg %</th><th>Volume</th></tr></thead>
+              <tbody>{rows_html}</tbody>
+            </table>""", unsafe_allow_html=True)
+        else:
+            st.markdown('<span style="color:#6e8098;font-size:0.82rem;">Unable to load volume data.</span>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:1.2rem'></div>", unsafe_allow_html=True)
+
+    # ── News Feed ─────────────────────────────────────────────────────────────
+    st.markdown('<div class="section-label">Market News</div>', unsafe_allow_html=True)
+    news = get_market_news()
+    if news:
+        nc = st.columns(2)
+        for i, item in enumerate(news):
+            open_a  = f'<a href="{item["link"]}" target="_blank" style="text-decoration:none">' if item["link"] else ""
+            close_a = "</a>" if item["link"] else ""
+            nc[i % 2].markdown(f"""
+            <div class="news-card">
+              {open_a}<div class="news-headline">{item['title']}</div>{close_a}
+              <div class="news-meta">
+                <span class="news-tag">{item['ticker']}</span>
+                {item['publisher']}{"  ·  " + item['time'] if item['time'] else ""}
+              </div>
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown('<span style="color:#6e8098;font-size:0.82rem;">Unable to load news.</span>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EARNINGS ANALYZER
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_earn:
+
+    # ── Suggested tickers ─────────────────────────────────────────────────────
+    st.markdown('<div class="section-label">Popular Tickers — Click to Select</div>', unsafe_allow_html=True)
+    chip_cols = st.columns(len(SUGGESTED))
+    for i, sym in enumerate(SUGGESTED):
+        if chip_cols[i].button(sym, key=f"chip_{sym}"):
+            st.session_state.selected_ticker = sym
+
+    # ── Search bar ────────────────────────────────────────────────────────────
+    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+    s1, s2 = st.columns([5, 1])
+    with s1:
+        query = st.text_input(
+            "search",
+            value=st.session_state.selected_ticker,
+            placeholder='Search by company name or ticker  (e.g. "Apple" or "AAPL")',
+            label_visibility="collapsed",
+        )
+    with s2:
+        go_btn = st.button("Analyze →", type="primary", use_container_width=True)
+
+    # ── Live search suggestions ────────────────────────────────────────────────
+    if query and len(query) > 2 and not go_btn:
+        looks_like_ticker = query == query.upper() and len(query) <= 5
+        if not looks_like_ticker:
+            matches = search_tickers(query)
+            if matches:
+                st.markdown('<div style="color:#6e8098;font-size:0.7rem;margin:4px 0 6px;">SELECT A RESULT BELOW</div>', unsafe_allow_html=True)
+                for sym, name in matches[:4]:
+                    if st.button(f"  {sym}   ·   {name}", key=f"sr_{sym}"):
+                        st.session_state.selected_ticker = sym
+                        st.rerun()
+
+    # ── Resolve active ticker ─────────────────────────────────────────────────
+    active = st.session_state.selected_ticker
+    if go_btn and query:
+        active = query.strip().upper()
+        st.session_state.selected_ticker = active
+
+    # ── Run analysis ──────────────────────────────────────────────────────────
+    if active:
+        with st.spinner(f"Loading {active}..."):
+            try:
+                info, income_q, balance_q, cashflow_q, earnings_hist = load_ticker(active)
+            except Exception as e:
+                st.error(f"Could not load data for **{active}**: {e}")
                 st.stop()
 
-            # Pull financial statements (quarterly)
-            income_q = stock.quarterly_financials
-            balance_q = stock.quarterly_balance_sheet
-            cashflow_q = stock.quarterly_cashflow
-            earnings_hist = stock.earnings_history
-
-        except Exception as e:
-            st.error(f"Error fetching data: {e}")
+        if not info or (not info.get("currentPrice") and not info.get("regularMarketPrice")):
+            st.error(f"No data found for **{active}**. Check the ticker and try again.")
             st.stop()
 
-    company_name = info.get("longName", ticker_input)
-    sector = info.get("sector", "N/A")
-    industry = info.get("industry", "N/A")
-    current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+        name    = info.get("longName", active)
+        sector  = info.get("sector", "")
+        industry = info.get("industry", "")
+        price   = info.get("currentPrice") or info.get("regularMarketPrice")
 
-    st.markdown(f"## {company_name} ({ticker_input})")
-    st.caption(f"{sector} · {industry}")
+        st.markdown(f"<div style='margin-top:1.4rem'></div>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='color:#cdd9e5;margin:0;font-size:1.4rem;font-weight:700;'>{name}</h2>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#6e8098;font-size:0.78rem;margin-bottom:1.2rem;'>{active} &nbsp;·&nbsp; {sector} &nbsp;·&nbsp; {industry}</div>", unsafe_allow_html=True)
 
-    # ── Plain English Summary ──────────────────────────────────────────────────
-    st.markdown("### What Happened This Quarter")
-    summary_lines = generate_summary(info, income_q, earnings_hist)
-    for line in summary_lines:
-        st.markdown(f"- {line}")
+        # ── Summary ───────────────────────────────────────────────────────────
+        st.markdown('<div class="section-label">Quarter in Plain English</div>', unsafe_allow_html=True)
+        for line in build_summary(info, income_q, earnings_hist, active):
+            st.markdown(f'<div class="summary-item">{line}</div>', unsafe_allow_html=True)
 
-    risks = flag_risks(info, income_q)
-    if risks:
-        with st.expander("⚠️ Potential Red Flags", expanded=True):
-            for r in risks:
-                st.markdown(f"- {r}")
+        flags = build_flags(info, income_q)
+        if flags:
+            with st.expander(f"⚠  {len(flags)} Risk Signal{'s' if len(flags)>1 else ''} Detected", expanded=True):
+                for f in flags:
+                    st.markdown(f'<div class="flag-item">{f}</div>', unsafe_allow_html=True)
 
-    st.divider()
+        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Key Metrics ────────────────────────────────────────────────────────────
-    st.markdown("### Key Metrics at a Glance")
+        # ── Key Metrics ───────────────────────────────────────────────────────
+        st.markdown('<div class="section-label">Key Metrics</div>', unsafe_allow_html=True)
+        mkt_cap      = info.get("marketCap")
+        rev_ttm      = info.get("totalRevenue")
+        eps_ttm      = info.get("trailingEps")
+        pe           = info.get("trailingPE")
+        fwd_pe       = info.get("forwardPE")
+        gross_margin = (info.get("grossMargins") or 0) * 100 or None
+        net_margin   = (info.get("profitMargins") or 0) * 100 or None
+        rev_growth   = (info.get("revenueGrowth") or 0) * 100 or None
+        earn_growth  = (info.get("earningsGrowth") or 0) * 100 or None
 
-    market_cap = info.get("marketCap")
-    revenue_ttm = info.get("totalRevenue")
-    gross_margin = info.get("grossMargins", 0) * 100 if info.get("grossMargins") else None
-    profit_margin = info.get("profitMargins", 0) * 100 if info.get("profitMargins") else None
-    eps_ttm = info.get("trailingEps")
-    pe = info.get("trailingPE")
-    fwd_pe = info.get("forwardPE")
-    rev_growth = info.get("revenueGrowth", 0) * 100 if info.get("revenueGrowth") else None
-    earnings_growth = info.get("earningsGrowth", 0) * 100 if info.get("earningsGrowth") else None
+        m = st.columns(6)
+        m[0].metric("Market Cap",    fmt_large(mkt_cap))
+        m[1].metric("Revenue (TTM)", fmt_large(rev_ttm))
+        m[2].metric("Price",         f"${price:,.2f}" if price else "N/A")
+        m[3].metric("EPS (TTM)",     f"${eps_ttm:.2f}" if eps_ttm else "N/A")
+        m[4].metric("P/E (Trail.)",  f"{pe:.1f}x" if pe and not pd.isna(pe) else "N/A")
+        m[5].metric("P/E (Fwd.)",    f"{fwd_pe:.1f}x" if fwd_pe and not pd.isna(fwd_pe) else "N/A")
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Market Cap", fmt_large(market_cap))
-    m2.metric("Revenue (TTM)", fmt_large(revenue_ttm))
-    m3.metric("Current Price", f"${current_price:,.2f}" if current_price else "N/A")
-    m4.metric("Trailing EPS", f"${eps_ttm:.2f}" if eps_ttm else "N/A")
+        m2 = st.columns(6)
+        m2[0].metric("Gross Margin", fmt_pct(gross_margin))
+        m2[1].metric("Net Margin",   fmt_pct(net_margin))
+        m2[2].metric("Rev. Growth",  fmt_pct(rev_growth),  delta=f"{rev_growth:.1f}%" if rev_growth else None)
+        m2[3].metric("EPS Growth",   fmt_pct(earn_growth), delta=f"{earn_growth:.1f}%" if earn_growth else None)
 
-    m5, m6, m7, m8 = st.columns(4)
-    m5.metric(
-        "Gross Margin",
-        fmt_pct(gross_margin),
-        delta=f"{gross_margin:.1f}%" if gross_margin else None,
-        delta_color="normal" if gross_margin and gross_margin > 30 else "inverse",
-    )
-    m6.metric("Net Margin", fmt_pct(profit_margin))
-    m7.metric("Trailing P/E", f"{pe:.1f}x" if pe and not pd.isna(pe) else "N/A")
-    m8.metric("Forward P/E", f"{fwd_pe:.1f}x" if fwd_pe and not pd.isna(fwd_pe) else "N/A")
-
-    if rev_growth is not None or earnings_growth is not None:
-        m9, m10, _, _ = st.columns(4)
-        m9.metric(
-            "Revenue Growth (YoY)",
-            fmt_pct(rev_growth),
-            delta=f"{rev_growth:.1f}%" if rev_growth is not None else None,
-        )
-        m10.metric(
-            "Earnings Growth (YoY)",
-            fmt_pct(earnings_growth),
-            delta=f"{earnings_growth:.1f}%" if earnings_growth is not None else None,
-        )
-
-    st.divider()
-
-    # ── EPS Beat/Miss Chart ────────────────────────────────────────────────────
-    if earnings_hist is not None and not earnings_hist.empty and "epsActual" in earnings_hist.columns:
-        st.markdown("### EPS: Actual vs. Estimate (Last 4 Quarters)")
-        df_eps = earnings_hist.head(4).copy()
-        df_eps = df_eps.sort_index()
-
-        # Label quarters
-        df_eps["quarter"] = df_eps.index.strftime("Q%q %Y") if hasattr(df_eps.index, "strftime") else df_eps.index.astype(str)
-
-        fig_eps = go.Figure()
-        fig_eps.add_trace(go.Bar(
-            x=df_eps["quarter"],
-            y=df_eps.get("epsEstimate", []),
-            name="Estimate",
-            marker_color="#93c5fd",
-        ))
-        fig_eps.add_trace(go.Bar(
-            x=df_eps["quarter"],
-            y=df_eps.get("epsActual", []),
-            name="Actual",
-            marker_color="#22c55e",
-        ))
-        fig_eps.update_layout(
-            barmode="group",
-            height=300,
-            margin=dict(t=20, b=20),
-            legend=dict(orientation="h", y=1.1),
-        )
-        st.plotly_chart(fig_eps, use_container_width=True)
-
-    # ── Revenue & Income Trend ─────────────────────────────────────────────────
-    if income_q is not None and not income_q.empty:
-        st.markdown("### Quarterly Revenue & Net Income Trend")
-
-        rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
-        ni_key = next((k for k in income_q.index if "Net Income" in k), None)
-
-        if rev_key or ni_key:
-            quarters = income_q.columns[:8]  # last 8 quarters
-            fig_inc = make_subplots(specs=[[{"secondary_y": True}]])
-
-            if rev_key:
-                rev_vals = income_q.loc[rev_key, quarters]
-                fig_inc.add_trace(
-                    go.Bar(x=quarters.strftime("%b %Y"), y=rev_vals.values, name="Revenue", marker_color="#6366f1"),
-                    secondary_y=False,
-                )
-
-            if ni_key:
-                ni_vals = income_q.loc[ni_key, quarters]
-                fig_inc.add_trace(
-                    go.Scatter(x=quarters.strftime("%b %Y"), y=ni_vals.values, name="Net Income",
-                               mode="lines+markers", line=dict(color="#f59e0b", width=2)),
-                    secondary_y=True,
-                )
-
-            fig_inc.update_yaxes(title_text="Revenue", secondary_y=False)
-            fig_inc.update_yaxes(title_text="Net Income", secondary_y=True)
-            fig_inc.update_layout(height=350, margin=dict(t=20, b=20), legend=dict(orientation="h", y=1.1))
-            st.plotly_chart(fig_inc, use_container_width=True)
-
-    # ── Margin Trend ──────────────────────────────────────────────────────────
-    if income_q is not None and not income_q.empty:
-        rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
-        gp_key = next((k for k in income_q.index if "Gross Profit" in k), None)
-        ni_key = next((k for k in income_q.index if "Net Income" in k), None)
-
-        if rev_key and (gp_key or ni_key):
-            st.markdown("### Margin Trends")
-            quarters = income_q.columns[:8]
-            rev_vals = income_q.loc[rev_key, quarters]
-
-            fig_marg = go.Figure()
-            if gp_key:
-                gp_vals = income_q.loc[gp_key, quarters]
-                gross_margins = (gp_vals / rev_vals * 100).round(1)
-                fig_marg.add_trace(go.Scatter(
-                    x=quarters.strftime("%b %Y"), y=gross_margins.values,
-                    name="Gross Margin %", mode="lines+markers", line=dict(color="#6366f1"),
-                ))
-            if ni_key:
-                ni_vals = income_q.loc[ni_key, quarters]
-                net_margins = (ni_vals / rev_vals * 100).round(1)
-                fig_marg.add_trace(go.Scatter(
-                    x=quarters.strftime("%b %Y"), y=net_margins.values,
-                    name="Net Margin %", mode="lines+markers", line=dict(color="#22c55e"),
-                ))
-
-            fig_marg.update_layout(
-                yaxis_title="Margin %",
-                height=300,
-                margin=dict(t=20, b=20),
-                legend=dict(orientation="h", y=1.1),
-            )
-            st.plotly_chart(fig_marg, use_container_width=True)
-
-    # ── Balance Sheet Snapshot ─────────────────────────────────────────────────
-    if balance_q is not None and not balance_q.empty:
         st.divider()
-        st.markdown("### Balance Sheet Snapshot (Latest Quarter)")
 
-        cash_key = next((k for k in balance_q.index if "Cash" in k and "Equivalent" in k), None)
-        debt_key = next((k for k in balance_q.index if "Total Debt" in k or "Long Term Debt" in k), None)
-        equity_key = next((k for k in balance_q.index if "Stockholders" in k or "Total Equity" in k), None)
+        # ── EPS Beat/Miss ─────────────────────────────────────────────────────
+        if earnings_hist is not None and not earnings_hist.empty and "epsActual" in earnings_hist.columns:
+            st.markdown('<div class="section-label">EPS: Actual vs Estimate</div>', unsafe_allow_html=True)
+            df_e = earnings_hist.head(4).sort_index()
+            qtrs = df_e.index.strftime("Q%q '%y") if hasattr(df_e.index, "strftime") else df_e.index.astype(str)
+            fig_eps = go.Figure()
+            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsEstimate", pd.Series(dtype=float)), name="Estimate", marker_color="#1e3a5f"))
+            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsActual",   pd.Series(dtype=float)), name="Actual",   marker_color="#ff9500"))
+            fig_eps.update_layout(**{**CHART_LAYOUT, "height": 240, "barmode": "group"})
+            st.plotly_chart(fig_eps, use_container_width=True, config={"displayModeBar": False})
 
-        snap = {}
-        if cash_key:
-            snap["Cash & Equivalents"] = balance_q.loc[cash_key].iloc[0]
-        if debt_key:
-            snap["Total Debt"] = balance_q.loc[debt_key].iloc[0]
-        if equity_key:
-            snap["Shareholders' Equity"] = balance_q.loc[equity_key].iloc[0]
+        # ── Revenue & Net Income ───────────────────────────────────────────────
+        if income_q is not None and not income_q.empty:
+            rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
+            ni_key  = next((k for k in income_q.index if "Net Income" in k), None)
+            if rev_key or ni_key:
+                st.markdown('<div class="section-label">Quarterly Revenue &amp; Net Income</div>', unsafe_allow_html=True)
+                qtrs = income_q.columns[:8]
+                fig_inc = make_subplots(specs=[[{"secondary_y": True}]])
+                if rev_key:
+                    fig_inc.add_trace(go.Bar(
+                        x=qtrs.strftime("%b '%y"), y=income_q.loc[rev_key, qtrs].values,
+                        name="Revenue", marker_color="#1e3a8a",
+                    ), secondary_y=False)
+                if ni_key:
+                    fig_inc.add_trace(go.Scatter(
+                        x=qtrs.strftime("%b '%y"), y=income_q.loc[ni_key, qtrs].values,
+                        name="Net Income", mode="lines+markers",
+                        line=dict(color="#ff9500", width=2), marker=dict(size=5),
+                    ), secondary_y=True)
+                layout_inc = {**CHART_LAYOUT, "height": 280}
+                fig_inc.update_layout(**layout_inc)
+                st.plotly_chart(fig_inc, use_container_width=True, config={"displayModeBar": False})
 
-        if snap:
-            bs_cols = st.columns(len(snap))
-            for i, (label, val) in enumerate(snap.items()):
-                bs_cols[i].metric(label, fmt_large(val))
+        # ── Margin Trend ──────────────────────────────────────────────────────
+        if income_q is not None and not income_q.empty:
+            rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
+            gp_key  = next((k for k in income_q.index if "Gross Profit" in k), None)
+            ni_key  = next((k for k in income_q.index if "Net Income" in k), None)
+            if rev_key and (gp_key or ni_key):
+                st.markdown('<div class="section-label">Margin Trends</div>', unsafe_allow_html=True)
+                qtrs = income_q.columns[:8]
+                rev_vals = income_q.loc[rev_key, qtrs]
+                fig_m = go.Figure()
+                if gp_key:
+                    gm = (income_q.loc[gp_key, qtrs] / rev_vals * 100).round(1)
+                    fig_m.add_trace(go.Scatter(x=qtrs.strftime("%b '%y"), y=gm.values,
+                        name="Gross Margin %", mode="lines+markers",
+                        line=dict(color="#6366f1", width=2), marker=dict(size=5)))
+                if ni_key:
+                    nm = (income_q.loc[ni_key, qtrs] / rev_vals * 100).round(1)
+                    fig_m.add_trace(go.Scatter(x=qtrs.strftime("%b '%y"), y=nm.values,
+                        name="Net Margin %", mode="lines+markers",
+                        line=dict(color="#00b578", width=2), marker=dict(size=5)))
+                layout_m = {**CHART_LAYOUT, "height": 240}
+                layout_m["yaxis"] = {**layout_m["yaxis"], "ticksuffix": "%"}
+                fig_m.update_layout(**layout_m)
+                st.plotly_chart(fig_m, use_container_width=True, config={"displayModeBar": False})
 
-    # ── Raw Data (Collapsible) ─────────────────────────────────────────────────
-    with st.expander("Raw Quarterly Financials"):
-        tab1, tab2, tab3 = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
-        with tab1:
-            if income_q is not None and not income_q.empty:
-                st.dataframe(income_q.iloc[:, :4].applymap(
-                    lambda x: fmt_large(x) if pd.notna(x) else "N/A"
-                ))
-        with tab2:
-            if balance_q is not None and not balance_q.empty:
-                st.dataframe(balance_q.iloc[:, :4].applymap(
-                    lambda x: fmt_large(x) if pd.notna(x) else "N/A"
-                ))
-        with tab3:
-            if cashflow_q is not None and not cashflow_q.empty:
-                st.dataframe(cashflow_q.iloc[:, :4].applymap(
-                    lambda x: fmt_large(x) if pd.notna(x) else "N/A"
-                ))
+        # ── Balance Sheet ─────────────────────────────────────────────────────
+        if balance_q is not None and not balance_q.empty:
+            cash_key   = next((k for k in balance_q.index if "Cash" in k and "Equivalent" in k), None)
+            debt_key   = next((k for k in balance_q.index if "Total Debt" in k), None)
+            equity_key = next((k for k in balance_q.index if "Stockholders" in k or "Total Equity" in k), None)
+            snap = {}
+            if cash_key:   snap["Cash & Equivalents"] = balance_q.loc[cash_key].iloc[0]
+            if debt_key:   snap["Total Debt"]          = balance_q.loc[debt_key].iloc[0]
+            if equity_key: snap["Shareholders' Equity"] = balance_q.loc[equity_key].iloc[0]
+            if snap:
+                st.markdown('<div class="section-label">Balance Sheet Snapshot</div>', unsafe_allow_html=True)
+                bs = st.columns(len(snap))
+                for col, (label, val) in zip(bs, snap.items()):
+                    col.metric(label, fmt_large(val))
 
-elif analyze_btn and not ticker_input:
-    st.warning("Please enter a ticker symbol.")
+        # ── Raw data ──────────────────────────────────────────────────────────
+        with st.expander("Raw Quarterly Financials"):
+            t1, t2, t3 = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
+            with t1:
+                if income_q is not None and not income_q.empty:
+                    st.dataframe(safe_fmt(income_q), use_container_width=True)
+            with t2:
+                if balance_q is not None and not balance_q.empty:
+                    st.dataframe(safe_fmt(balance_q), use_container_width=True)
+            with t3:
+                if cashflow_q is not None and not cashflow_q.empty:
+                    st.dataframe(safe_fmt(cashflow_q), use_container_width=True)
