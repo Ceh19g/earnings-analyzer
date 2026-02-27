@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+import requests
 
 st.set_page_config(page_title="MarketLens", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
 
@@ -139,6 +140,29 @@ hr { border-color: #e2e8f0 !important; margin: 1.2rem 0 !important; }
     padding: 0.5rem 0.9rem; margin-bottom: 0.4rem;
     color: #1e293b; font-size: 0.84rem;
 }
+
+/* Kalshi market cards */
+.kalshi-card {
+    background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 1rem 1.1rem; margin-bottom: 0.6rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+.kalshi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); border-color: #94a3b8; }
+.kalshi-title { color: #0f172a; font-size: 0.88rem; font-weight: 600; line-height: 1.4; margin-bottom: 0.6rem; }
+.kalshi-prob-bar {
+    width: 100%; height: 6px; background: #fee2e2; border-radius: 99px; margin-bottom: 0.5rem; overflow: hidden;
+}
+.kalshi-prob-fill { height: 100%; border-radius: 99px; background: #16a34a; }
+.kalshi-pcts { display: flex; justify-content: space-between; margin-bottom: 0.4rem; }
+.kalshi-yes { color: #16a34a; font-size: 0.82rem; font-weight: 700; }
+.kalshi-no  { color: #dc2626; font-size: 0.82rem; font-weight: 700; }
+.kalshi-meta { color: #94a3b8; font-size: 0.72rem; display: flex; justify-content: space-between; }
+.kalshi-event {
+    display: inline-block; background: #f1f5f9; color: #475569;
+    border-radius: 4px; padding: 1px 7px; font-size: 0.68rem;
+    font-weight: 600; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.kalshi-filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -278,6 +302,22 @@ def get_market_news():
             continue
     return items[:14]
 
+@st.cache_data(ttl=180)
+def get_kalshi_markets(limit=200, cursor=None):
+    try:
+        params = {"status": "open", "limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        resp = requests.get(
+            "https://api.elections.kalshi.com/trade-api/v2/markets",
+            params=params, timeout=15
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("markets", []), data.get("cursor", "")
+    except Exception as e:
+        return [], ""
+
 @st.cache_data(ttl=60)
 def search_tickers(query):
     try:
@@ -385,7 +425,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── TABS ──────────────────────────────────────────────────────────────────────
-tab_dash, tab_earn = st.tabs(["  Market Dashboard  ", "  Earnings Analyzer  "])
+tab_dash, tab_earn, tab_kalshi = st.tabs(["  Market Dashboard  ", "  Earnings Analyzer  ", "  Kalshi Markets  "])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKET DASHBOARD
@@ -665,3 +705,141 @@ with tab_earn:
             with t3:
                 if cashflow_q is not None and not cashflow_q.empty:
                     st.dataframe(safe_fmt(cashflow_q), use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KALSHI MARKETS
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_kalshi:
+    st.markdown('<div class="section-label">Live Prediction Markets</div>', unsafe_allow_html=True)
+
+    # ── Search + category filter ───────────────────────────────────────────────
+    kcol1, kcol2 = st.columns([4, 2])
+    with kcol1:
+        k_search = st.text_input("kalshi_search", placeholder="Search markets  (e.g. Fed, Bitcoin, NBA...)",
+                                  label_visibility="collapsed")
+    with kcol2:
+        k_sort = st.selectbox("sort", ["Volume (High → Low)", "Probability (High → Low)",
+                                        "Closing Soon", "Recently Added"],
+                               label_visibility="collapsed")
+
+    with st.spinner("Loading Kalshi markets..."):
+        markets, next_cursor = get_kalshi_markets(limit=200)
+
+    if not markets:
+        st.error("Could not load Kalshi markets. The API may be temporarily unavailable.")
+    else:
+        # ── Build category list from event tickers ────────────────────────────
+        def get_series(m):
+            et = m.get("event_ticker", "") or m.get("ticker", "")
+            return et.split("-")[0] if "-" in et else et[:6]
+
+        all_series = sorted(set(get_series(m) for m in markets))
+
+        # Friendly category labels for common series
+        SERIES_LABELS = {
+            "KXFED": "Fed / Rates", "KXBTC": "Bitcoin", "KXETH": "Ethereum",
+            "KXINX": "S&P 500", "KXGOLD": "Gold", "KXOIL": "Oil",
+            "KXNFL": "NFL", "KXNBA": "NBA", "KXMLB": "MLB", "KXNHL": "NHL",
+            "KXMMA": "MMA / UFC", "KXSOC": "Soccer",
+            "KXPOP": "Pop Culture", "KXPOL": "Politics", "KXWEA": "Weather",
+            "KXCPI": "Inflation / CPI", "KXJOB": "Jobs / Unemployment",
+            "KXTECH": "Tech", "KXAI": "AI",
+        }
+
+        kcategory_options = ["All"] + [SERIES_LABELS.get(s, s) for s in all_series]
+        series_lookup = {SERIES_LABELS.get(s, s): s for s in all_series}
+
+        selected_cat_label = st.selectbox(
+            "Category", kcategory_options, label_visibility="visible"
+        )
+        selected_series = series_lookup.get(selected_cat_label) if selected_cat_label != "All" else None
+
+        # ── Filter markets ────────────────────────────────────────────────────
+        filtered = markets
+        if selected_series:
+            filtered = [m for m in filtered if get_series(m) == selected_series]
+        if k_search:
+            q = k_search.lower()
+            filtered = [m for m in filtered if q in m.get("title", "").lower()
+                        or q in m.get("subtitle", "").lower()
+                        or q in m.get("event_ticker", "").lower()]
+
+        # ── Sort ──────────────────────────────────────────────────────────────
+        def sort_key(m):
+            lp = m.get("last_price") or 0
+            vol = m.get("volume_24h") or m.get("volume") or 0
+            ct = m.get("close_time") or "9999"
+            if k_sort == "Volume (High → Low)":
+                return -vol
+            elif k_sort == "Probability (High → Low)":
+                return -lp
+            elif k_sort == "Closing Soon":
+                return ct
+            else:
+                return m.get("created_time") or ""
+
+        filtered.sort(key=sort_key)
+
+        # ── Stats row ────────────────────────────────────────────────────────
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Open Markets", f"{len(markets):,}")
+        s2.metric("Showing", f"{len(filtered):,}")
+        total_vol = sum(m.get("volume_24h") or 0 for m in filtered)
+        s3.metric("24h Volume (shown)", f"{total_vol:,} contracts")
+
+        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+        # ── Market cards ──────────────────────────────────────────────────────
+        if not filtered:
+            st.info("No markets match your filter.")
+        else:
+            # Render in 2-column grid
+            cols = st.columns(2, gap="medium")
+            for i, m in enumerate(filtered[:100]):   # cap at 100 displayed
+                title       = m.get("title", "Untitled")
+                subtitle    = m.get("subtitle", "")
+                last_price  = m.get("last_price") or 0       # cents, 0-100
+                yes_bid     = m.get("yes_bid") or 0
+                no_bid      = m.get("no_bid") or 0
+                vol_24h     = m.get("volume_24h") or m.get("volume") or 0
+                close_time  = m.get("close_time", "")
+                event_ticker = m.get("event_ticker", "")
+
+                # Probability: use last_price (in cents → %)
+                yes_pct = last_price   # already 0-100
+                no_pct  = 100 - yes_pct
+
+                # Format close date
+                close_str = ""
+                if close_time:
+                    try:
+                        dt = datetime.fromisoformat(close_time.replace("Z", "+00:00"))
+                        close_str = dt.strftime("%b %d, %Y")
+                    except:
+                        close_str = close_time[:10]
+
+                vol_str = f"{vol_24h:,}" if vol_24h else "—"
+
+                # Color the bar based on probability
+                bar_color = "#16a34a" if yes_pct >= 50 else "#dc2626"
+                bar_bg    = "#dcfce7" if yes_pct >= 50 else "#fee2e2"
+
+                cols[i % 2].markdown(f"""
+                <div class="kalshi-card">
+                  <div class="kalshi-event">{event_ticker}</div>
+                  <div class="kalshi-title">{title}{(' — ' + subtitle) if subtitle else ''}</div>
+                  <div class="kalshi-prob-bar" style="background:{bar_bg}">
+                    <div class="kalshi-prob-fill" style="width:{yes_pct}%; background:{bar_color}"></div>
+                  </div>
+                  <div class="kalshi-pcts">
+                    <span class="kalshi-yes">YES &nbsp;{yes_pct}¢</span>
+                    <span class="kalshi-no">NO &nbsp;{no_pct}¢</span>
+                  </div>
+                  <div class="kalshi-meta">
+                    <span>Vol 24h: {vol_str}</span>
+                    <span>Closes {close_str}</span>
+                  </div>
+                </div>""", unsafe_allow_html=True)
+
+            if len(filtered) > 100:
+                st.caption(f"Showing top 100 of {len(filtered)} matching markets. Use the search or category filter to narrow down.")
