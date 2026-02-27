@@ -277,29 +277,79 @@ def get_top_volume():
 
 @st.cache_data(ttl=600)
 def get_market_news():
+    import xml.etree.ElementTree as ET
+    from datetime import datetime, timezone
+
+    def _ts_to_date(ts):
+        """Convert a Unix timestamp int or ISO string to YYYY-MM-DD."""
+        if isinstance(ts, (int, float)):
+            return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+        return str(ts)[:10]
+
+    def _rss_fallback(sym):
+        """Fetch up to 3 items from Yahoo Finance RSS for a symbol."""
+        try:
+            resp = requests.get(
+                f"https://feeds.finance.yahoo.com/rss/2.0/headline"
+                f"?s={sym}&region=US&lang=en-US",
+                timeout=5,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if not resp.ok:
+                return []
+            root = ET.fromstring(resp.content)
+            out = []
+            for item in root.findall("./channel/item")[:3]:
+                title = item.findtext("title", "").strip()
+                link  = item.findtext("link", "").strip()
+                pd    = item.findtext("pubDate", "")
+                try:
+                    pub_time = datetime.strptime(pd[:16].strip(), "%a, %d %b %Y").strftime("%Y-%m-%d")
+                except Exception:
+                    pub_time = pd[:10]
+                if title:
+                    out.append({"title": title, "publisher": "Yahoo Finance",
+                                "link": link, "time": pub_time})
+            return out
+        except Exception:
+            return []
+
     items, seen = [], set()
     for sym in ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL"]:
+        sym_items = []
         try:
-            for a in yf.Ticker(sym).news[:3]:
+            ticker_news = yf.Ticker(sym).news or []
+            for a in ticker_news[:3]:
                 content = a.get("content", {})
                 if isinstance(content, dict) and content:
-                    title     = content.get("title", "")
+                    title     = content.get("title", "").strip()
                     provider  = content.get("provider") or {}
                     publisher = provider.get("displayName", "") if isinstance(provider, dict) else ""
-                    url_obj   = content.get("canonicalUrl") or content.get("clickThroughUrl") or {}
-                    link      = url_obj.get("url", "") if isinstance(url_obj, dict) else ""
-                    pub_time  = str(content.get("pubDate", ""))[:10]
+                    # canonicalUrl → clickThroughUrl → url (covers older & newer yfinance)
+                    url_obj   = (content.get("canonicalUrl") or
+                                 content.get("clickThroughUrl") or
+                                 content.get("url") or {})
+                    link      = url_obj.get("url", "") if isinstance(url_obj, dict) else str(url_obj)
+                    pub_time  = _ts_to_date(content.get("pubDate", ""))
                 else:
-                    title     = a.get("title", "")
+                    title     = a.get("title", "").strip()
                     publisher = a.get("publisher", "")
                     link      = a.get("link", "")
-                    pub_time  = str(a.get("providerPublishTime", ""))[:10]
-                if title and title not in seen:
-                    seen.add(title)
-                    items.append({"title": title, "publisher": publisher,
-                                  "link": link, "time": pub_time, "ticker": sym})
-        except:
-            continue
+                    pub_time  = _ts_to_date(a.get("providerPublishTime", ""))
+                if title:
+                    sym_items.append({"title": title, "publisher": publisher,
+                                      "link": link, "time": pub_time})
+        except Exception:
+            pass
+
+        if not sym_items:
+            sym_items = _rss_fallback(sym)
+
+        for item in sym_items:
+            if item["title"] not in seen:
+                seen.add(item["title"])
+                items.append({**item, "ticker": sym})
+
     return items[:14]
 
 KALSHI_SERIES = [
