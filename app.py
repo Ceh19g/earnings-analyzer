@@ -422,6 +422,9 @@ with tab_dash:
                 hovertemplate="%{x|%b %d}<br><b>%{y:,.0f}</b><extra></extra>",
             ))
             apply_chart_style(fig, height=280)
+            y_min = hist["Close"].min() * 0.995
+            y_max = hist["Close"].max() * 1.005
+            fig.update_yaxes(range=[y_min, y_max])
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with right:
