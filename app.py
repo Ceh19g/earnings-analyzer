@@ -6,6 +6,8 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import requests
 
+FD_API_BASE = "https://api.financialdatasets.ai"
+
 st.set_page_config(page_title="MarketLens", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
 
 # ── LIGHT THEME CSS ───────────────────────────────────────────────────────────
@@ -352,6 +354,38 @@ def get_market_news():
 
     return items[:14]
 
+@st.cache_data(ttl=600)
+def get_fd_ticker_news(ticker, api_key):
+    """Fetch recent news for a ticker from the Financial Datasets API."""
+    if not api_key:
+        return []
+    try:
+        resp = requests.get(
+            f"{FD_API_BASE}/news/",
+            params={"ticker": ticker},
+            headers={"X-API-KEY": api_key},
+            timeout=10,
+        )
+        if not resp.ok:
+            return []
+        raw = resp.json()
+        items = raw.get("news", raw.get("data", []))
+        result = []
+        for item in items[:6]:
+            title = item.get("title", "").strip()
+            if not title:
+                continue
+            result.append({
+                "title": title,
+                "publisher": item.get("source", item.get("publisher", "")),
+                "link": item.get("url", item.get("link", "")),
+                "time": str(item.get("date", item.get("published_date", "")))[:10],
+                "ticker": ticker,
+            })
+        return result
+    except Exception:
+        return []
+
 KALSHI_SERIES = [
     "KXBTC", "KXETH", "KXFED", "KXINX", "KXGOLD", "KXOIL",
     "KXNFL", "KXNBA", "KXNHL", "KXMLB", "KXMMA",
@@ -484,6 +518,27 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── SIDEBAR: Financial Datasets API key ───────────────────────────────────────
+with st.sidebar:
+    st.markdown("### Financial Datasets")
+    fd_key_input = st.text_input(
+        "API Key",
+        type="password",
+        placeholder="Paste your key here",
+        help="Optional. Enables company-specific news and supplemental financial data.",
+    )
+    if fd_key_input:
+        st.session_state["fd_api_key"] = fd_key_input
+    fd_api_key = st.session_state.get("fd_api_key", "")
+    if fd_api_key:
+        st.success("API key active", icon="✓")
+    else:
+        st.markdown(
+            '<div style="font-size:0.75rem;color:#94a3b8">Get a free key at '
+            '<a href="https://financialdatasets.ai" target="_blank">financialdatasets.ai</a></div>',
+            unsafe_allow_html=True,
+        )
+
 # ── TABS ──────────────────────────────────────────────────────────────────────
 tab_dash, tab_earn, tab_kalshi = st.tabs(["  Market Dashboard  ", "  Earnings Analyzer  ", "  Kalshi Markets  "])
 
@@ -571,6 +626,30 @@ with tab_dash:
             </div>""", unsafe_allow_html=True)
     else:
         st.info("News unavailable at this time.")
+
+    # ── Supplemental news from Financial Datasets API ─────────────────────────
+    if fd_api_key:
+        seen_titles = {item["title"] for item in news}
+        fd_extra = []
+        for sym in ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL"]:
+            for item in get_fd_ticker_news(sym, fd_api_key)[:2]:
+                if item["title"] not in seen_titles:
+                    seen_titles.add(item["title"])
+                    fd_extra.append(item)
+        if fd_extra:
+            st.markdown('<div class="section-label">More News · Financial Datasets</div>', unsafe_allow_html=True)
+            nc2 = st.columns(2)
+            for i, item in enumerate(fd_extra[:8]):
+                open_a  = f'<a href="{item["link"]}" target="_blank" style="text-decoration:none">' if item["link"] else ""
+                close_a = "</a>" if item["link"] else ""
+                nc2[i % 2].markdown(f"""
+                <div class="news-card">
+                  {open_a}<div class="news-headline">{item['title']}</div>{close_a}
+                  <div class="news-meta">
+                    <span class="news-tag">{item['ticker']}</span>
+                    {item['publisher']}{"  ·  " + item['time'] if item['time'] else ""}
+                  </div>
+                </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EARNINGS ANALYZER
@@ -752,6 +831,24 @@ with tab_earn:
                 bs = st.columns(len(snap))
                 for col, (label, val) in zip(bs, snap.items()):
                     col.metric(label, fmt_large(val))
+
+        # ── Company News (Financial Datasets API) ─────────────────────────────
+        if fd_api_key:
+            fd_news = get_fd_ticker_news(active, fd_api_key)
+            if fd_news:
+                st.markdown('<div class="section-label">Recent News</div>', unsafe_allow_html=True)
+                nc = st.columns(2)
+                for i, item in enumerate(fd_news):
+                    open_a  = f'<a href="{item["link"]}" target="_blank" style="text-decoration:none">' if item["link"] else ""
+                    close_a = "</a>" if item["link"] else ""
+                    nc[i % 2].markdown(f"""
+                    <div class="news-card">
+                      {open_a}<div class="news-headline">{item['title']}</div>{close_a}
+                      <div class="news-meta">
+                        <span class="news-tag">{item['ticker']}</span>
+                        {item['publisher']}{"  ·  " + item['time'] if item['time'] else ""}
+                      </div>
+                    </div>""", unsafe_allow_html=True)
 
         # Raw data
         with st.expander("Raw Quarterly Financials"):
