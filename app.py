@@ -302,22 +302,31 @@ def get_market_news():
             continue
     return items[:14]
 
+KALSHI_SERIES = [
+    "KXBTC", "KXETH", "KXFED", "KXINX", "KXGOLD", "KXOIL",
+    "KXNFL", "KXNBA", "KXNHL", "KXMLB", "KXMMA",
+    "KXCPI", "KXJOB", "KXGDP", "KXWEA", "KXPOL",
+    "KXAI", "KXTECH", "KXELEC",
+]
+
 @st.cache_data(ttl=180)
-def get_kalshi_markets(limit=500, cursor=None):
-    params = {"status": "open", "limit": limit}
-    if cursor:
-        params["cursor"] = cursor
-    try:
-        resp = requests.get(
-            "https://api.elections.kalshi.com/trade-api/v2/markets",
-            params=params, timeout=15
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("markets", []), data.get("cursor", ""), ""
-        return [], "", f"HTTP {resp.status_code}: {resp.text[:300]}"
-    except Exception as e:
-        return [], "", str(e)
+def get_kalshi_markets():
+    all_markets = []
+    last_err = ""
+    for series in KALSHI_SERIES:
+        try:
+            resp = requests.get(
+                "https://api.elections.kalshi.com/trade-api/v2/markets",
+                params={"status": "open", "limit": 50, "series_ticker": series},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                all_markets.extend(resp.json().get("markets", []))
+            else:
+                last_err = f"HTTP {resp.status_code} for {series}"
+        except Exception as e:
+            last_err = str(e)
+    return all_markets, last_err
 
 @st.cache_data(ttl=60)
 def search_tickers(query):
@@ -723,19 +732,11 @@ with tab_kalshi:
                                         "Closing Soon", "Recently Added"],
                                label_visibility="collapsed")
 
-    PARLAY_KEYWORDS = ["CROSSCATEGORY", "MULTIGAME", "PARLAY"]
-
-    def is_parlay(m):
-        et = (m.get("event_ticker") or "").upper()
-        tk = (m.get("ticker") or "").upper()
-        return any(kw in et or kw in tk for kw in PARLAY_KEYWORDS)
-
     with st.spinner("Loading Kalshi markets..."):
-        markets, next_cursor, k_err = get_kalshi_markets(limit=500)
-        markets = [m for m in markets if not is_parlay(m)]
+        markets, k_err = get_kalshi_markets()
 
     if not markets:
-        st.error(f"Could not load Kalshi markets. Error: {k_err or 'No markets returned.'}")
+        st.error(f"Could not load Kalshi markets. {k_err or 'No markets found for the selected series.'}")
     else:
         # ── Build category list from event tickers ────────────────────────────
         def get_series(m):
