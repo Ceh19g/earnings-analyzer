@@ -7,129 +7,138 @@ from datetime import datetime
 
 st.set_page_config(page_title="MarketLens", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
 
-# ── BLOOMBERG-INSPIRED DARK THEME ─────────────────────────────────────────────
+# ── LIGHT THEME CSS ───────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
-.stApp { background-color: #060b14 !important; }
+
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 1rem 2rem 2rem 2rem !important; max-width: 100% !important; }
 
 /* Tabs */
 .stTabs [data-baseweb="tab-list"] {
-    background: transparent; border-bottom: 1px solid #1a2744; gap: 0; padding: 0;
+    border-bottom: 2px solid #e2e8f0; gap: 0; padding: 0; background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #6e8098 !important; font-weight: 500; font-size: 0.82rem;
-    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.9rem 1.8rem;
+    color: #64748b !important; font-weight: 500; font-size: 0.85rem;
+    letter-spacing: 0.04em; padding: 0.8rem 1.6rem;
     border-bottom: 2px solid transparent; background: transparent !important;
 }
-.stTabs [aria-selected="true"] { color: #ff9500 !important; border-bottom: 2px solid #ff9500 !important; }
+.stTabs [aria-selected="true"] {
+    color: #2563eb !important; border-bottom: 2px solid #2563eb !important;
+}
 
 /* Metrics */
 div[data-testid="metric-container"] {
-    background: #0d1526 !important; border: 1px solid #1a2744 !important;
-    border-radius: 4px; padding: 0.8rem 1rem !important;
+    background: #f8fafc !important; border: 1px solid #e2e8f0 !important;
+    border-radius: 8px; padding: 0.8rem 1rem !important;
 }
 div[data-testid="metric-container"] label {
-    color: #6e8098 !important; font-size: 0.68rem !important;
-    text-transform: uppercase; letter-spacing: 0.09em;
+    color: #64748b !important; font-size: 0.7rem !important;
+    text-transform: uppercase; letter-spacing: 0.08em;
 }
 div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #cdd9e5 !important; font-size: 1.3rem !important; font-weight: 600;
+    color: #0f172a !important; font-size: 1.3rem !important; font-weight: 700;
 }
 div[data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 0.8rem !important; }
 
-/* Input */
-.stTextInput > div > div > input {
-    background: #0d1526 !important; border: 1px solid #1a2744 !important;
-    color: #cdd9e5 !important; border-radius: 4px !important;
-    padding: 0.5rem 0.75rem !important; font-size: 0.9rem !important;
-}
-.stTextInput > div > div > input:focus {
-    border-color: #ff9500 !important; box-shadow: 0 0 0 1px #ff9500 !important;
-}
-.stTextInput > div > div > input::placeholder { color: #6e8098 !important; }
-
-/* Buttons */
+/* Buttons - chip style */
 .stButton > button {
-    background: #0d1526 !important; border: 1px solid #1a2744 !important;
-    color: #cdd9e5 !important; border-radius: 3px !important;
+    background: #ffffff !important; border: 1px solid #e2e8f0 !important;
+    color: #374151 !important; border-radius: 6px !important;
     font-size: 0.78rem !important; font-weight: 600 !important;
-    letter-spacing: 0.04em !important; padding: 0.35rem 0.9rem !important;
-    transition: all 0.15s ease !important;
+    padding: 0.3rem 0.8rem !important; transition: all 0.15s ease !important;
 }
 .stButton > button:hover {
-    border-color: #ff9500 !important; color: #ff9500 !important;
-    background: rgba(255,149,0,0.08) !important;
+    border-color: #2563eb !important; color: #2563eb !important;
+    background: #eff6ff !important;
 }
 .stButton > button[kind="primary"] {
-    background: #ff9500 !important; border-color: #ff9500 !important; color: #060b14 !important;
+    background: #2563eb !important; border-color: #2563eb !important;
+    color: #ffffff !important;
 }
-hr { border-color: #1a2744 !important; margin: 1rem 0 !important; }
+
+/* Text input */
+.stTextInput > div > div > input {
+    border: 1px solid #e2e8f0 !important; border-radius: 8px !important;
+    padding: 0.55rem 0.85rem !important; font-size: 0.9rem !important;
+    color: #0f172a !important; background: #ffffff !important;
+}
+.stTextInput > div > div > input:focus {
+    border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
+}
+
+/* Divider */
+hr { border-color: #e2e8f0 !important; margin: 1.2rem 0 !important; }
 
 /* Expander */
 .streamlit-expanderHeader {
-    background: #0d1526 !important; border: 1px solid #1a2744 !important;
-    border-radius: 4px !important; color: #cdd9e5 !important;
-}
-details[open] .streamlit-expanderHeader { border-radius: 4px 4px 0 0 !important; }
-.streamlit-expanderContent {
-    background: #0d1526 !important; border: 1px solid #1a2744 !important;
-    border-top: 0 !important; border-radius: 0 0 4px 4px !important;
+    background: #f8fafc !important; border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important; color: #374151 !important; font-weight: 500 !important;
 }
 
 /* Section label */
 .section-label {
-    color: #6e8098; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.1em; padding-bottom: 0.6rem; border-bottom: 1px solid #1a2744;
-    margin-bottom: 1rem;
-}
-
-/* Volume table */
-.vol-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.vol-table th {
-    color: #6e8098; font-size: 0.68rem; text-transform: uppercase;
-    letter-spacing: 0.08em; padding: 0.4rem 0.6rem; border-bottom: 1px solid #1a2744; text-align: right;
-}
-.vol-table th:first-child { text-align: left; }
-.vol-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid rgba(26,39,68,0.5); color: #cdd9e5; text-align: right; }
-.vol-table td:first-child { text-align: left; font-weight: 700; color: #ff9500; }
-.vol-table tr:hover td { background: rgba(255,149,0,0.04); }
-.pos { color: #00b578 !important; } .neg { color: #ff4747 !important; }
-
-/* News */
-.news-card {
-    background: #0d1526; border: 1px solid #1a2744; border-left: 3px solid #ff9500;
-    border-radius: 0 4px 4px 0; padding: 0.7rem 1rem; margin-bottom: 0.5rem;
-}
-.news-headline { color: #cdd9e5; font-size: 0.85rem; font-weight: 500; line-height: 1.4; }
-.news-meta { color: #6e8098; font-size: 0.72rem; margin-top: 4px; }
-.news-tag {
-    display: inline-block; background: rgba(255,149,0,0.15); color: #ff9500;
-    border-radius: 2px; padding: 0 5px; font-size: 0.68rem; font-weight: 700; margin-right: 6px;
-}
-
-/* Summary & flag cards */
-.summary-item {
-    background: #0d1526; border: 1px solid #1a2744; border-radius: 4px;
-    padding: 0.6rem 1rem; margin-bottom: 0.4rem; color: #cdd9e5; font-size: 0.85rem; line-height: 1.5;
-}
-.flag-item {
-    background: rgba(255,71,71,0.08); border: 1px solid rgba(255,71,71,0.25);
-    border-left: 3px solid #ff4747; border-radius: 0 4px 4px 0;
-    padding: 0.5rem 0.9rem; margin-bottom: 0.4rem; color: #cdd9e5; font-size: 0.83rem;
+    color: #64748b; font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem;
 }
 
 /* App header */
 .app-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0.8rem 0; border-bottom: 1px solid #1a2744; margin-bottom: 1.2rem;
+    padding: 0.6rem 0 1rem 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.2rem;
 }
-.app-logo { color: #ff9500; font-size: 1.25rem; font-weight: 700; letter-spacing: 0.06em; }
-.app-tagline { color: #6e8098; font-size: 0.75rem; margin-left: 0.75rem; }
-.app-time { color: #6e8098; font-size: 0.75rem; }
+.app-logo { color: #2563eb; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.app-tagline { color: #94a3b8; font-size: 0.78rem; margin-left: 0.6rem; }
+.app-time { color: #94a3b8; font-size: 0.75rem; }
+
+/* Volume table */
+.vol-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+.vol-table th {
+    color: #64748b; font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;
+}
+.vol-table th:first-child { text-align: left; }
+.vol-table td {
+    padding: 0.55rem 0.6rem; border-bottom: 1px solid #f1f5f9;
+    color: #0f172a; text-align: right;
+}
+.vol-table td:first-child { text-align: left; font-weight: 700; color: #2563eb; }
+.vol-table tr:hover td { background: #f8fafc; }
+.pos { color: #16a34a !important; font-weight: 600; }
+.neg { color: #dc2626 !important; font-weight: 600; }
+
+/* News */
+.news-card {
+    background: #ffffff; border: 1px solid #e2e8f0;
+    border-left: 3px solid #2563eb; border-radius: 0 8px 8px 0;
+    padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+    transition: box-shadow 0.15s;
+}
+.news-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.news-headline { color: #0f172a; font-size: 0.85rem; font-weight: 500; line-height: 1.45; }
+.news-meta { color: #94a3b8; font-size: 0.72rem; margin-top: 5px; }
+.news-tag {
+    display: inline-block; background: #eff6ff; color: #2563eb;
+    border-radius: 4px; padding: 1px 6px; font-size: 0.68rem;
+    font-weight: 700; margin-right: 6px;
+}
+
+/* Summary and flag cards */
+.summary-item {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 0.65rem 1rem; margin-bottom: 0.4rem;
+    color: #1e293b; font-size: 0.87rem; line-height: 1.5;
+}
+.flag-item {
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-left: 3px solid #dc2626; border-radius: 0 6px 6px 0;
+    padding: 0.5rem 0.9rem; margin-bottom: 0.4rem;
+    color: #1e293b; font-size: 0.84rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -138,7 +147,8 @@ if "selected_ticker" not in st.session_state:
     st.session_state.selected_ticker = ""
 
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
-SUGGESTED = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD", "NFLX", "JPM", "BAC", "XOM", "PLTR", "DIS", "UBER"]
+SUGGESTED = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD", "NFLX",
+             "JPM", "BAC", "XOM", "PLTR", "DIS", "UBER"]
 
 VOLUME_WATCH = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD", "NFLX",
                 "JPM", "BAC", "XOM", "PLTR", "SPY", "QQQ", "INTC", "F", "DIS", "SOFI", "UBER"]
@@ -185,6 +195,20 @@ def safe_fmt(df):
     except:
         return df.iloc[:, :4]
 
+def apply_chart_style(fig, height=280):
+    """Apply consistent light-theme style to any chart."""
+    fig.update_layout(
+        height=height,
+        paper_bgcolor="white",
+        plot_bgcolor="#f8fafc",
+        margin=dict(l=0, r=0, t=10, b=0),
+        hovermode="x unified",
+        legend=dict(orientation="h", y=1.12, font=dict(size=11, color="#64748b")),
+        font=dict(family="Inter, sans-serif"),
+    )
+    fig.update_xaxes(showgrid=False, color="#94a3b8", tickfont=dict(size=10))
+    fig.update_yaxes(gridcolor="#e2e8f0", color="#94a3b8", tickfont=dict(size=10))
+
 # ── DATA FUNCTIONS ────────────────────────────────────────────────────────────
 @st.cache_data(ttl=120)
 def get_indices():
@@ -193,9 +217,7 @@ def get_indices():
     for name, sym in symbols.items():
         try:
             fi = yf.Ticker(sym).fast_info
-            price = fi.last_price
-            prev  = fi.previous_close
-            out[name] = {"price": price, "change": pct_change(price, prev)}
+            out[name] = {"price": fi.last_price, "change": pct_change(fi.last_price, fi.previous_close)}
         except:
             out[name] = {"price": None, "change": None}
     return out
@@ -250,7 +272,8 @@ def get_market_news():
                     pub_time  = str(a.get("providerPublishTime", ""))[:10]
                 if title and title not in seen:
                     seen.add(title)
-                    items.append({"title": title, "publisher": publisher, "link": link, "time": pub_time, "ticker": sym})
+                    items.append({"title": title, "publisher": publisher,
+                                  "link": link, "time": pub_time, "ticker": sym})
         except:
             continue
     return items[:14]
@@ -275,8 +298,6 @@ def load_ticker(symbol):
 # ── ANALYSIS HELPERS ──────────────────────────────────────────────────────────
 def build_summary(info, income_q, earnings_hist, ticker):
     lines = []
-    name = info.get("longName", ticker)
-
     if income_q is not None and len(income_q.columns) >= 2:
         rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
         if rev_key:
@@ -295,7 +316,8 @@ def build_summary(info, income_q, earnings_hist, ticker):
             if eps_est is not None and not pd.isna(eps_est) and eps_est != 0:
                 diff = eps_actual - eps_est
                 bm = "beat" if diff >= 0 else "missed"
-                lines.append(f"This <b>{bm}</b> analyst estimates of ${eps_est:.2f} by ${abs(diff):.2f} ({abs(diff/eps_est)*100:.1f}%).")
+                lines.append(f"This <b>{bm}</b> analyst estimates of ${eps_est:.2f} "
+                              f"by ${abs(diff):.2f} ({abs(diff/eps_est)*100:.1f}%).")
 
     pm = info.get("profitMargins")
     if pm is not None:
@@ -305,11 +327,16 @@ def build_summary(info, income_q, earnings_hist, ticker):
 
     fpe = info.get("forwardPE")
     tpe = info.get("trailingPE")
-    if fpe and tpe and not pd.isna(fpe) and not pd.isna(tpe):
-        if fpe < tpe:
-            lines.append(f"Forward P/E ({fpe:.1f}x) is below trailing P/E ({tpe:.1f}x) — market expects <b>earnings growth</b> ahead.")
-        else:
-            lines.append(f"Forward P/E ({fpe:.1f}x) is above trailing P/E ({tpe:.1f}x) — market expects <b>earnings to moderate</b>.")
+    if fpe and tpe:
+        try:
+            if not pd.isna(fpe) and not pd.isna(tpe):
+                if fpe < tpe:
+                    lines.append(f"Forward P/E ({fpe:.1f}x) is below trailing P/E ({tpe:.1f}x) — "
+                                  "market expects <b>earnings growth</b> ahead.")
+                else:
+                    lines.append(f"Forward P/E ({fpe:.1f}x) is above trailing P/E ({tpe:.1f}x) — "
+                                  "market expects <b>earnings to moderate</b>.")
+        except: pass
 
     if not lines:
         lines.append("Summary data is limited for this ticker. See the charts below for trends.")
@@ -318,11 +345,17 @@ def build_summary(info, income_q, earnings_hist, ticker):
 def build_flags(info, income_q):
     flags = []
     de = info.get("debtToEquity")
-    if de and not pd.isna(de) and de > 200:
-        flags.append(f"High debt-to-equity ratio ({de:.0f}%) — elevated financial leverage.")
+    if de:
+        try:
+            if not pd.isna(de) and de > 200:
+                flags.append(f"High debt-to-equity ratio ({de:.0f}%) — elevated financial leverage.")
+        except: pass
     pm = info.get("profitMargins")
-    if pm is not None and not pd.isna(pm) and pm < 0:
-        flags.append("Negative profit margin — company is currently unprofitable.")
+    if pm is not None:
+        try:
+            if not pd.isna(pm) and pm < 0:
+                flags.append("Negative profit margin — company is currently unprofitable.")
+        except: pass
     if income_q is not None and len(income_q.columns) >= 4:
         rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
         if rev_key:
@@ -332,26 +365,19 @@ def build_flags(info, income_q):
             if len(chgs) >= 2 and chgs[0] < chgs[-1]:
                 flags.append("Revenue growth is decelerating over recent quarters.")
     ocf = info.get("operatingCashflow")
-    if ocf is not None and not pd.isna(ocf) and ocf < 0:
-        flags.append("Negative operating cash flow — the business is burning cash.")
+    if ocf is not None:
+        try:
+            if not pd.isna(ocf) and ocf < 0:
+                flags.append("Negative operating cash flow — the business is burning cash.")
+        except: pass
     return flags
-
-# ── CHART DEFAULTS ────────────────────────────────────────────────────────────
-CHART_LAYOUT = dict(
-    paper_bgcolor="transparent", plot_bgcolor="#0d1526",
-    margin=dict(l=0, r=0, t=10, b=0),
-    xaxis=dict(color="#6e8098", tickfont=dict(size=10), showgrid=False),
-    yaxis=dict(color="#6e8098", tickfont=dict(size=10), gridcolor="#1a2744"),
-    legend=dict(orientation="h", y=1.15, font=dict(color="#6e8098", size=11)),
-    hovermode="x unified",
-)
 
 # ── APP HEADER ────────────────────────────────────────────────────────────────
 now = datetime.now().strftime("%b %d, %Y  %H:%M")
 st.markdown(f"""
 <div class="app-header">
-  <div style="display:flex; align-items:baseline; gap:0.75rem;">
-    <span class="app-logo">◆ MARKETLENS</span>
+  <div style="display:flex; align-items:baseline; gap:0.5rem;">
+    <span class="app-logo">◆ MarketLens</span>
     <span class="app-tagline">Earnings &amp; Market Intelligence</span>
   </div>
   <span class="app-time">{now}</span>
@@ -374,9 +400,9 @@ with tab_dash:
         delta_str = f"{d['change']:+.2f}%" if d["change"] is not None else None
         col.metric(name, price_str, delta_str)
 
-    st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
-    # ── S&P Chart + Volume table ───────────────────────────────────────────────
+    # ── S&P Chart + Volume ────────────────────────────────────────────────────
     left, right = st.columns([6, 4], gap="large")
 
     with left:
@@ -385,18 +411,17 @@ with tab_dash:
         if not hist.empty:
             start = hist["Close"].iloc[0]
             end   = hist["Close"].iloc[-1]
-            line_color = "#00b578" if end >= start else "#ff4747"
-            fill_rgb   = "0,181,120" if end >= start else "255,71,71"
+            is_up = end >= start
+            line_color = "#16a34a" if is_up else "#dc2626"
+            fill_rgb   = "22,163,74" if is_up else "220,38,38"
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=hist.index, y=hist["Close"],
                 fill="tozeroy", fillcolor=f"rgba({fill_rgb},0.07)",
-                line=dict(color=line_color, width=1.5),
+                line=dict(color=line_color, width=2),
                 hovertemplate="%{x|%b %d}<br><b>%{y:,.0f}</b><extra></extra>",
             ))
-            layout = {**CHART_LAYOUT, "height": 290}
-            layout["yaxis"] = {**layout["yaxis"], "tickprefix": ""}
-            fig.update_layout(**layout)
+            apply_chart_style(fig, height=280)
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with right:
@@ -421,9 +446,9 @@ with tab_dash:
               <tbody>{rows_html}</tbody>
             </table>""", unsafe_allow_html=True)
         else:
-            st.markdown('<span style="color:#6e8098;font-size:0.82rem;">Unable to load volume data.</span>', unsafe_allow_html=True)
+            st.info("Volume data unavailable.")
 
-    st.markdown("<div style='height:1.2rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
     # ── News Feed ─────────────────────────────────────────────────────────────
     st.markdown('<div class="section-label">Market News</div>', unsafe_allow_html=True)
@@ -442,7 +467,7 @@ with tab_dash:
               </div>
             </div>""", unsafe_allow_html=True)
     else:
-        st.markdown('<span style="color:#6e8098;font-size:0.82rem;">Unable to load news.</span>', unsafe_allow_html=True)
+        st.info("News unavailable at this time.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EARNINGS ANALYZER
@@ -450,14 +475,14 @@ with tab_dash:
 with tab_earn:
 
     # ── Suggested tickers ─────────────────────────────────────────────────────
-    st.markdown('<div class="section-label">Popular Tickers — Click to Select</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Popular Tickers — Click to Load</div>', unsafe_allow_html=True)
     chip_cols = st.columns(len(SUGGESTED))
     for i, sym in enumerate(SUGGESTED):
         if chip_cols[i].button(sym, key=f"chip_{sym}"):
             st.session_state.selected_ticker = sym
 
     # ── Search bar ────────────────────────────────────────────────────────────
-    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
     s1, s2 = st.columns([5, 1])
     with s1:
         query = st.text_input(
@@ -475,19 +500,19 @@ with tab_earn:
         if not looks_like_ticker:
             matches = search_tickers(query)
             if matches:
-                st.markdown('<div style="color:#6e8098;font-size:0.7rem;margin:4px 0 6px;">SELECT A RESULT BELOW</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#94a3b8;font-size:0.7rem;margin:6px 0;">SELECT A RESULT BELOW</div>', unsafe_allow_html=True)
                 for sym, name in matches[:4]:
                     if st.button(f"  {sym}   ·   {name}", key=f"sr_{sym}"):
                         st.session_state.selected_ticker = sym
                         st.rerun()
 
-    # ── Resolve active ticker ─────────────────────────────────────────────────
+    # ── Resolve ticker ────────────────────────────────────────────────────────
     active = st.session_state.selected_ticker
     if go_btn and query:
         active = query.strip().upper()
         st.session_state.selected_ticker = active
 
-    # ── Run analysis ──────────────────────────────────────────────────────────
+    # ── Analysis ──────────────────────────────────────────────────────────────
     if active:
         with st.spinner(f"Loading {active}..."):
             try:
@@ -500,16 +525,16 @@ with tab_earn:
             st.error(f"No data found for **{active}**. Check the ticker and try again.")
             st.stop()
 
-        name    = info.get("longName", active)
-        sector  = info.get("sector", "")
+        name     = info.get("longName", active)
+        sector   = info.get("sector", "")
         industry = info.get("industry", "")
-        price   = info.get("currentPrice") or info.get("regularMarketPrice")
+        price    = info.get("currentPrice") or info.get("regularMarketPrice")
 
-        st.markdown(f"<div style='margin-top:1.4rem'></div>", unsafe_allow_html=True)
-        st.markdown(f"<h2 style='color:#cdd9e5;margin:0;font-size:1.4rem;font-weight:700;'>{name}</h2>", unsafe_allow_html=True)
-        st.markdown(f"<div style='color:#6e8098;font-size:0.78rem;margin-bottom:1.2rem;'>{active} &nbsp;·&nbsp; {sector} &nbsp;·&nbsp; {industry}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='color:#0f172a;margin:0;font-size:1.5rem;font-weight:800;'>{name}</h2>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:1.2rem;'>{active} &nbsp;·&nbsp; {sector} &nbsp;·&nbsp; {industry}</div>", unsafe_allow_html=True)
 
-        # ── Summary ───────────────────────────────────────────────────────────
+        # Summary
         st.markdown('<div class="section-label">Quarter in Plain English</div>', unsafe_allow_html=True)
         for line in build_summary(info, income_q, earnings_hist, active):
             st.markdown(f'<div class="summary-item">{line}</div>', unsafe_allow_html=True)
@@ -522,13 +547,13 @@ with tab_earn:
 
         st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-        # ── Key Metrics ───────────────────────────────────────────────────────
+        # Key Metrics
         st.markdown('<div class="section-label">Key Metrics</div>', unsafe_allow_html=True)
-        mkt_cap      = info.get("marketCap")
-        rev_ttm      = info.get("totalRevenue")
-        eps_ttm      = info.get("trailingEps")
-        pe           = info.get("trailingPE")
-        fwd_pe       = info.get("forwardPE")
+        mkt_cap     = info.get("marketCap")
+        rev_ttm     = info.get("totalRevenue")
+        eps_ttm     = info.get("trailingEps")
+        pe          = info.get("trailingPE")
+        fwd_pe      = info.get("forwardPE")
         gross_margin = (info.get("grossMargins") or 0) * 100 or None
         net_margin   = (info.get("profitMargins") or 0) * 100 or None
         rev_growth   = (info.get("revenueGrowth") or 0) * 100 or None
@@ -550,18 +575,21 @@ with tab_earn:
 
         st.divider()
 
-        # ── EPS Beat/Miss ─────────────────────────────────────────────────────
+        # EPS Beat/Miss
         if earnings_hist is not None and not earnings_hist.empty and "epsActual" in earnings_hist.columns:
             st.markdown('<div class="section-label">EPS: Actual vs Estimate</div>', unsafe_allow_html=True)
             df_e = earnings_hist.head(4).sort_index()
             qtrs = df_e.index.strftime("Q%q '%y") if hasattr(df_e.index, "strftime") else df_e.index.astype(str)
             fig_eps = go.Figure()
-            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsEstimate", pd.Series(dtype=float)), name="Estimate", marker_color="#1e3a5f"))
-            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsActual",   pd.Series(dtype=float)), name="Actual",   marker_color="#ff9500"))
-            fig_eps.update_layout(**{**CHART_LAYOUT, "height": 240, "barmode": "group"})
+            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsEstimate", pd.Series(dtype=float)),
+                                     name="Estimate", marker_color="#bfdbfe"))
+            fig_eps.add_trace(go.Bar(x=list(qtrs), y=df_e.get("epsActual", pd.Series(dtype=float)),
+                                     name="Actual", marker_color="#2563eb"))
+            fig_eps.update_layout(barmode="group")
+            apply_chart_style(fig_eps, height=240)
             st.plotly_chart(fig_eps, use_container_width=True, config={"displayModeBar": False})
 
-        # ── Revenue & Net Income ───────────────────────────────────────────────
+        # Revenue & Net Income
         if income_q is not None and not income_q.empty:
             rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
             ni_key  = next((k for k in income_q.index if "Net Income" in k), None)
@@ -572,19 +600,18 @@ with tab_earn:
                 if rev_key:
                     fig_inc.add_trace(go.Bar(
                         x=qtrs.strftime("%b '%y"), y=income_q.loc[rev_key, qtrs].values,
-                        name="Revenue", marker_color="#1e3a8a",
+                        name="Revenue", marker_color="#bfdbfe",
                     ), secondary_y=False)
                 if ni_key:
                     fig_inc.add_trace(go.Scatter(
                         x=qtrs.strftime("%b '%y"), y=income_q.loc[ni_key, qtrs].values,
                         name="Net Income", mode="lines+markers",
-                        line=dict(color="#ff9500", width=2), marker=dict(size=5),
+                        line=dict(color="#2563eb", width=2), marker=dict(size=5),
                     ), secondary_y=True)
-                layout_inc = {**CHART_LAYOUT, "height": 280}
-                fig_inc.update_layout(**layout_inc)
+                apply_chart_style(fig_inc, height=280)
                 st.plotly_chart(fig_inc, use_container_width=True, config={"displayModeBar": False})
 
-        # ── Margin Trend ──────────────────────────────────────────────────────
+        # Margin Trend
         if income_q is not None and not income_q.empty:
             rev_key = next((k for k in income_q.index if "Total Revenue" in k or "Revenue" in k), None)
             gp_key  = next((k for k in income_q.index if "Gross Profit" in k), None)
@@ -598,18 +625,17 @@ with tab_earn:
                     gm = (income_q.loc[gp_key, qtrs] / rev_vals * 100).round(1)
                     fig_m.add_trace(go.Scatter(x=qtrs.strftime("%b '%y"), y=gm.values,
                         name="Gross Margin %", mode="lines+markers",
-                        line=dict(color="#6366f1", width=2), marker=dict(size=5)))
+                        line=dict(color="#7c3aed", width=2), marker=dict(size=5)))
                 if ni_key:
                     nm = (income_q.loc[ni_key, qtrs] / rev_vals * 100).round(1)
                     fig_m.add_trace(go.Scatter(x=qtrs.strftime("%b '%y"), y=nm.values,
                         name="Net Margin %", mode="lines+markers",
-                        line=dict(color="#00b578", width=2), marker=dict(size=5)))
-                layout_m = {**CHART_LAYOUT, "height": 240}
-                layout_m["yaxis"] = {**layout_m["yaxis"], "ticksuffix": "%"}
-                fig_m.update_layout(**layout_m)
+                        line=dict(color="#16a34a", width=2), marker=dict(size=5)))
+                apply_chart_style(fig_m, height=240)
+                fig_m.update_yaxes(ticksuffix="%")
                 st.plotly_chart(fig_m, use_container_width=True, config={"displayModeBar": False})
 
-        # ── Balance Sheet ─────────────────────────────────────────────────────
+        # Balance Sheet
         if balance_q is not None and not balance_q.empty:
             cash_key   = next((k for k in balance_q.index if "Cash" in k and "Equivalent" in k), None)
             debt_key   = next((k for k in balance_q.index if "Total Debt" in k), None)
@@ -624,7 +650,7 @@ with tab_earn:
                 for col, (label, val) in zip(bs, snap.items()):
                     col.metric(label, fmt_large(val))
 
-        # ── Raw data ──────────────────────────────────────────────────────────
+        # Raw data
         with st.expander("Raw Quarterly Financials"):
             t1, t2, t3 = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
             with t1:
